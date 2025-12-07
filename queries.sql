@@ -35,8 +35,8 @@ WHERE avg_income < avg_all
 ORDER BY average_income ASC;
 Выручка по дням недели для каждого продавца
 SELECT
-    CONCAT(TRIM(e.first_name), ' ', TRIM(e.last_name)) AS seller,
-    TRIM(TO_CHAR(s.sale_date, 'day')) AS day_of_week,
+    CONCAT(e.first_name, ' ', e.last_name) AS seller,
+    TO_CHAR(s.sale_date, 'day') AS day_of_week,
     FLOOR(SUM(p.price * s.quantity)) AS income
 FROM sales s
 JOIN employees e ON s.sales_person_id = e.employee_id

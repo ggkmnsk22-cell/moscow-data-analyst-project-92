@@ -1,7 +1,7 @@
-Этот запрос считает общее количество покупателей в таблице customers
+-- Этот запрос считает общее количество покупателей в таблице customers
 SELECT COUNT(*) AS customers_count
 FROM customers;
-Топ-10 продавцов по суммарной выручке
+-- Топ-10 продавцов по суммарной выручке
 SELECT
     CONCAT(TRIM(e.first_name), ' ', TRIM(e.last_name)) AS seller,
     COUNT(*) AS operations,
@@ -12,7 +12,7 @@ JOIN products p ON s.product_id = p.product_id
 GROUP BY seller
 ORDER BY income DESC
 LIMIT 10;
-Продавцы с низкой средней выручкой за сделку
+-- Продавцы с низкой средней выручкой за сделку
 WITH per_seller AS (
     SELECT
         CONCAT(TRIM(e.first_name), ' ', TRIM(e.last_name)) AS seller,
@@ -33,18 +33,22 @@ SELECT
 FROM per_seller, overall
 WHERE avg_income < avg_all
 ORDER BY average_income ASC;
-Выручка по дням недели для каждого продавца
+ -- Выручка по дням недели для каждого продавца
 SELECT
-    CONCAT(TRIM(e.first_name), ' ', TRIM(e.last_name)) AS seller,
-    RTRIM(TO_CHAR(s.sale_date, 'day')) AS day_of_week,
-    FLOOR(SUM(p.price * s.quantity)) AS income
+  CONCAT(TRIM(e.first_name), ' ', TRIM(e.last_name)) AS seller,
+  RTRIM(TO_CHAR(s.sale_date, 'day')) AS day_of_week,
+  FLOOR(SUM(p.price * s.quantity)) AS income
 FROM sales s
 JOIN employees e ON s.sales_person_id = e.employee_id
 JOIN products p ON s.product_id = p.product_id
-GROUP BY seller, day_of_week, EXTRACT(DOW FROM s.sale_date)
-ORDER BY EXTRACT(DOW FROM s.sale_date), seller;
-
-Отчёт 1 - Количество покупателей по возрастным группам 16-25, 26-40 и 40 +
+GROUP BY
+  CONCAT(TRIM(e.first_name), ' ', TRIM(e.last_name)),
+  RTRIM(TO_CHAR(s.sale_date, 'day')),
+  EXTRACT(ISODOW FROM s.sale_date)
+ORDER BY
+  EXTRACT(ISODOW FROM s.sale_date),  -- 1 = Monday, 7 = Sunday
+  seller;
+-- Отчёт 1 - Количество покупателей по возрастным группам 16-25, 26-40 и 40 +
 Создаём категории возрастов, считаем количество людей в каждой группе
 Отсортировано по возрастным группам
 
@@ -67,19 +71,19 @@ ORDER BY
         WHEN '40+' THEN 3
     END;
 
-Отчёт 2 - Количество уникальных покупателей и выручка по месяцам
+-- Отчёт 2 - Количество уникальных покупателей и выручка по месяцам
 Группировка по дате в формате ГГГГ-ММ (YYYY-MM)
 Выручка считается как SUM(price * quantity) Покупатели и выручка по месяцам
 SELECT 
     TO_CHAR(s.sale_date, 'YYYY-MM') AS selling_month,
     COUNT(DISTINCT s.customer_id) AS total_customers,
-    ROUND(SUM(p.price * s.quantity)) AS income
+    FLOOR(SUM(p.price * s.quantity)) AS income
 FROM sales s
 JOIN products p ON s.product_id = p.product_id
-GROUP BY selling_month
-ORDER BY selling_month;
+GROUP BY TO_CHAR(s.sale_date, 'YYYY-MM')
+ORDER BY TO_CHAR(s.sale_date, 'YYYY-MM');
 
-Отчёт 3 - Покупатели, чья первая покупка была акционной (товар отпускался по цене 0)
+-- Отчёт 3 - Покупатели, чья первая покупка была акционной (товар отпускался по цене 0)
 Берём первую покупку каждого покупателя, затем выбираем только тех, где price = 0
 special_offer.csv - Покупатели, чья первая покупка была по акции (цена = 0)
 Ищем  покупателей, первая покупка которых была по нулевой цене.

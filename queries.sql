@@ -1,4 +1,4 @@
--- Этот запрос считает общее количество покупателей в таблице customers
+-- Количество покупателей
 SELECT COUNT(*) AS customers_count
 FROM customers;
 
@@ -14,7 +14,7 @@ GROUP BY seller
 ORDER BY income DESC
 LIMIT 10;
 
--- Продавцы с низкой средней выручкой за сделку
+-- Продавцы с низкой средней выручкой
 WITH per_seller AS (
     SELECT
         CONCAT(TRIM(e.first_name), ' ', TRIM(e.last_name)) AS seller,
@@ -26,18 +26,16 @@ WITH per_seller AS (
     JOIN products AS p ON s.product_id = p.product_id
     GROUP BY seller
 ),
-
 overall AS (
-    SELECT AVG(avg_income) AS avg_all
-    FROM per_seller
+    SELECT AVG(per.avg_income) AS avg_all
+    FROM per_seller AS per
 )
-
 SELECT
-    seller,
-    FLOOR(avg_income) AS average_income
+    per_seller.seller,
+    FLOOR(per_seller.avg_income) AS average_income
 FROM per_seller
 JOIN overall ON TRUE
-WHERE avg_income < avg_all
+WHERE per_seller.avg_income < overall.avg_all
 ORDER BY average_income ASC;
 
 -- Выручка по дням недели для каждого продавца
@@ -56,34 +54,28 @@ ORDER BY
     EXTRACT(ISODOW FROM s.sale_date),
     seller;
 
--- Отчёт 1 — Количество покупателей по возрастным группам 16–25, 26–40 и 40+
--- Создаём категории возрастов, считаем количество людей в каждой группе
--- Отсортировано по возрастным группам
-
+-- Отчёт 1 — Количество покупателей по возрастным группам
 SELECT *
 FROM (
-    SELECT 
+    SELECT
         CASE
-            WHEN age BETWEEN 16 AND 25 THEN '16-25'
-            WHEN age BETWEEN 26 AND 40 THEN '26-40'
-            WHEN age >= 41 THEN '40+'
+            WHEN c.age BETWEEN 16 AND 25 THEN '16-25'
+            WHEN c.age BETWEEN 26 AND 40 THEN '26-40'
+            WHEN c.age >= 41 THEN '40+'
         END AS age_category,
         COUNT(*) AS age_count
-    FROM customers
+    FROM customers AS c
     GROUP BY age_category
 ) AS t
-ORDER BY 
+ORDER BY
     CASE t.age_category
         WHEN '16-25' THEN 1
         WHEN '26-40' THEN 2
         WHEN '40+' THEN 3
     END;
 
--- Отчёт 2 — Количество уникальных покупателей и выручка по месяцам
--- Группировка по дате в формате YYYY-MM
--- Выручка считается как SUM(price * quantity)
-
-SELECT 
+-- Отчёт 2 — Уникальные покупатели и выручка по месяцам
+SELECT
     TO_CHAR(s.sale_date, 'YYYY-MM') AS selling_month,
     COUNT(DISTINCT s.customer_id) AS total_customers,
     FLOOR(SUM(p.price * s.quantity)) AS income
@@ -92,11 +84,7 @@ JOIN products AS p ON s.product_id = p.product_id
 GROUP BY selling_month
 ORDER BY selling_month;
 
--- Отчёт 3 — Покупатели, чья первая покупка была акционной (price = 0)
--- Берём первую покупку каждого покупателя
--- Оставляем только тех, у кого price = 0
--- Выводим покупателя, дату покупки и продавца
-
+-- Отчёт 3 — Покупатели, чья первая покупка была акционной
 WITH ordered_sales AS (
     SELECT
         s.customer_id,
@@ -109,7 +97,6 @@ WITH ordered_sales AS (
         ) AS rn
     FROM sales AS s
 ),
-
 first_sale AS (
     SELECT
         os.customer_id,
@@ -119,11 +106,10 @@ first_sale AS (
     FROM ordered_sales AS os
     WHERE os.rn = 1
 )
-
 SELECT
-    c.first_name || ' ' || c.last_name AS customer,
+    CONCAT(TRIM(c.first_name), ' ', TRIM(c.last_name)) AS customer,
     fs.sale_date,
-    e.first_name || ' ' || e.last_name AS seller
+    CONCAT(TRIM(e.first_name), ' ', TRIM(e.last_name)) AS seller
 FROM first_sale AS fs
 JOIN products AS p ON fs.product_id = p.product_id
 JOIN customers AS c ON fs.customer_id = c.customer_id

@@ -35,14 +35,15 @@ WHERE avg_income < avg_all
 ORDER BY average_income ASC;
 Выручка по дням недели для каждого продавца
 SELECT
-    CONCAT(e.first_name, ' ', e.last_name) AS seller,
-    TO_CHAR(s.sale_date, 'day') AS day_of_week,
+    CONCAT(TRIM(e.first_name), ' ', TRIM(e.last_name)) AS seller,
+    RTRIM(TO_CHAR(s.sale_date, 'day')) AS day_of_week,
     FLOOR(SUM(p.price * s.quantity)) AS income
 FROM sales s
 JOIN employees e ON s.sales_person_id = e.employee_id
 JOIN products p ON s.product_id = p.product_id
 GROUP BY seller, day_of_week, EXTRACT(DOW FROM s.sale_date)
 ORDER BY EXTRACT(DOW FROM s.sale_date), seller;
+
 Отчёт 1 - Количество покупателей по возрастным группам 16-25, 26-40 и 40 +
 Создаём категории возрастов, считаем количество людей в каждой группе
 Отсортировано по возрастным группам
@@ -68,12 +69,11 @@ ORDER BY
 
 Отчёт 2 - Количество уникальных покупателей и выручка по месяцам
 Группировка по дате в формате ГГГГ-ММ (YYYY-MM)
-Выручка считается как SUM(price * quantity)
-
+Выручка считается как SUM(price * quantity) Покупатели и выручка по месяцам
 SELECT 
     TO_CHAR(s.sale_date, 'YYYY-MM') AS selling_month,
     COUNT(DISTINCT s.customer_id) AS total_customers,
-    ROUND(SUM(p.price * s.quantity), 2) AS income
+    ROUND(SUM(p.price * s.quantity)) AS income
 FROM sales s
 JOIN products p ON s.product_id = p.product_id
 GROUP BY selling_month
@@ -88,24 +88,38 @@ special_offer.csv - Покупатели, чья первая покупка б�
 Имя + фамилию продавца.
 Сортировка по ID покупателя.
 
-WITH first_sales AS (
-    SELECT 
+WWITH ordered_sales AS (
+    SELECT
         s.customer_id,
-        MIN(s.sale_date) AS first_sale_date
+        s.sale_date,
+        s.product_id,
+        s.sales_person_id,
+        ROW_NUMBER() OVER (
+            PARTITION BY s.customer_id
+            ORDER BY s.sale_date
+        ) AS rn
     FROM sales s
-    JOIN products p ON s.product_id = p.product_id
-    WHERE p.price = 0
-    GROUP BY s.customer_id
+),
+first_sale AS (
+    SELECT
+        os.customer_id,
+        os.sale_date,
+        os.product_id,
+        os.sales_person_id
+    FROM ordered_sales os
+    WHERE os.rn = 1
 )
-SELECT 
+SELECT
     c.first_name || ' ' || c.last_name AS customer,
-    fs.first_sale_date AS sale_date,
+    fs.sale_date,
     e.first_name || ' ' || e.last_name AS seller
-FROM first_sales fs
-JOIN sales s ON fs.customer_id = s.customer_id AND fs.first_sale_date = s.sale_date
+FROM first_sale fs
+JOIN products p ON fs.product_id = p.product_id
 JOIN customers c ON fs.customer_id = c.customer_id
-JOIN employees e ON s.sales_person_id = e.employee_id
+JOIN employees e ON fs.sales_person_id = e.employee_id
+WHERE p.price = 0
 ORDER BY fs.customer_id;
+
 
 
 
